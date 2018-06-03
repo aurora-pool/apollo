@@ -21,5 +21,5 @@ func main() {
 
 	api.GET("/channels", channelCtrl.ChannelIndex)
 
-	router.Run(":8242")
+	router.Run(":8442")
 }
