@@ -9,4 +9,4 @@ ADD . /go/src/github.com/aurora-pool/apollo
 
 RUN govendor sync && go install github.com/aurora-pool/apollo
 
-EXPOSE 8242
+EXPOSE 8442
