@@ -20,6 +20,7 @@ func main() {
 	channelCtrl.SetDB(nil)
 
 	api.GET("/channels", channelCtrl.ChannelIndex)
+	api.GET("/ws", channelCtrl.WebSocket)
 
 	router.Run(":8442")
 }
