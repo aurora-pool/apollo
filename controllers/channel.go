@@ -13,6 +13,10 @@ type ChannelCtrl struct {
 	Controller
 }
 
+func (UserModel) TableName() string {
+	return "user"
+}
+
 func (ctr ChannelCtrl) ChannelIndex(c *gin.Context) {
 	c.JSON(200, map[string]string{"message": "Coming soon"})
 }
@@ -36,7 +40,6 @@ func wshandler(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				// We are done here
 				clientClosed <- true
-
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
 					log.Printf("error: %v, user-agent: %v", err, r.Header.Get("User-Agent"))
 				}
