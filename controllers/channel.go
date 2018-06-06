@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -28,30 +28,50 @@ var wsupgrader = websocket.Upgrader{
 
 func wshandler(w http.ResponseWriter, r *http.Request) {
 	connection, _ := wsupgrader.Upgrade(w, r, nil)
+	clientClosed := make(chan bool, 1)
 
-	go func(connection *websocket.Conn) {
+	go func(connection *websocket.Conn, clientClosed chan bool) {
 		for {
 			_, _, err := connection.ReadMessage()
 			if err != nil {
-				fmt.Println("Failed to set websocket upgrade: %+v", err)
+				// We are done here
+				clientClosed <- true
+
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
+					log.Printf("error: %v, user-agent: %v", err, r.Header.Get("User-Agent"))
+				}
+
 				connection.Close()
 			}
 		}
-	}(connection)
+	}(connection, clientClosed)
 
-	go func(connection *websocket.Conn) {
-		ch := time.Tick(5 * time.Second)
+	go func(connection *websocket.Conn, clientClosed chan bool) {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
 
-		for range ch {
-			// we need to get these values from db.
-			connection.WriteJSON(User{
-				Address:            "QX87 QX87 QX87 QX87 QX87 QX87 QX87 QX87",
-				OutStandingBalance: 220.23,
-				PaidBalance:        1245.96,
-				Hashrate:           100.12,
-			})
+		connection.WriteJSON(User{
+			Address:            "QX87 QX87 QX87 QX87 QX87 QX87 QX87 QX87",
+			OutStandingBalance: 220.23,
+			PaidBalance:        1245.96,
+			Hashrate:           100.12,
+		})
+
+		for {
+			select {
+			case <-ticker.C:
+				// we need to get these values from db.
+				connection.WriteJSON(User{
+					Address:            "QX87 QX87 QX87 QX87 QX87 QX87 QX87 QX87",
+					OutStandingBalance: 220.23,
+					PaidBalance:        1245.96,
+					Hashrate:           100.12,
+				})
+			case <-clientClosed:
+				return
+			}
 		}
-	}(connection)
+	}(connection, clientClosed)
 }
 
 type User struct {

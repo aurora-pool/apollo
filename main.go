@@ -10,6 +10,7 @@ import (
 func main() {
 	router := gin.New()
 	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
 
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(200, map[string]string{"message": "API: welcome to the jungle!"})
