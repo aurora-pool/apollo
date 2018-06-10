@@ -8,6 +8,7 @@ import (
 )
 
 func main() {
+	controllers.InitRedis()
 	router := gin.New()
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())

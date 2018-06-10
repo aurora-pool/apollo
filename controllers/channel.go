@@ -3,10 +3,19 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/garyburd/redigo/redis"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+)
+
+var RedisPool *redis.Pool
+
+const (
+	RedisHost = "localhost"
+	RedisPort = "6379"
 )
 
 type ChannelCtrl struct {
@@ -25,18 +34,60 @@ func (ctr ChannelCtrl) WebSocket(c *gin.Context) {
 	wshandler(c.Writer, c.Request)
 }
 
+func (ctr ChannelCtrl) InitRedis() {
+	InitRedis()
+}
+
 var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
 
-func wshandler(w http.ResponseWriter, r *http.Request) {
-	connection, _ := wsupgrader.Upgrade(w, r, nil)
-	clientClosed := make(chan bool, 1)
+func createRedisPool() *redis.Pool {
+	pool := &redis.Pool{
+		MaxIdle:     10,
+		MaxActive:   10,
+		IdleTimeout: 50 * time.Second,
+		Wait:        true,
+		Dial: func() (redis.Conn, error) {
+			return redis.Dial("tcp",
+				getRedisUrl(),
+				redis.DialConnectTimeout(
+					10*time.Second,
+				),
+				redis.DialDatabase(0),
+			)
+		},
+	}
 
-	go func(connection *websocket.Conn, clientClosed chan bool) {
+	conn := pool.Get()
+	defer conn.Close()
+	_, err := conn.Do("PING")
+
+	if err != nil {
+		log.Printf("Could not connect to redis on %s", getRedisUrl())
+		panic(err)
+	}
+
+	return pool
+}
+
+func getRedisUrl() string {
+	if redisEnv := os.Getenv("REDIS_URL"); len(redisEnv) > 1 {
+		return redisEnv
+	}
+	return RedisHost + ":" + RedisPort
+}
+
+func wshandler(w http.ResponseWriter, r *http.Request) {
+	socketConnection, _ := wsupgrader.Upgrade(w, r, nil)
+	redisConnection := RedisPool.Get()
+	clientClosed := make(chan bool, 1)
+	poolStats, _ := redis.Bytes(redisConnection.Do("get", "aurora-pool:stats"))
+
+	go func(socketConnection *websocket.Conn, clientClosed chan bool) {
 		for {
-			_, _, err := connection.ReadMessage()
+			_, _, err := socketConnection.ReadMessage()
 			if err != nil {
 				// We are done here
 				clientClosed <- true
@@ -44,37 +95,31 @@ func wshandler(w http.ResponseWriter, r *http.Request) {
 					log.Printf("error: %v, user-agent: %v", err, r.Header.Get("User-Agent"))
 				}
 
-				connection.Close()
+				socketConnection.Close()
 			}
 		}
-	}(connection, clientClosed)
+	}(socketConnection, clientClosed)
 
-	go func(connection *websocket.Conn, clientClosed chan bool) {
+	go func(socketConnection *websocket.Conn, clientClosed chan bool) {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
-
-		connection.WriteJSON(User{
-			Address:            "QX87 QX87 QX87 QX87 QX87 QX87 QX87 QX87",
-			OutStandingBalance: 220.23,
-			PaidBalance:        1245.96,
-			Hashrate:           100.12,
-		})
+		socketConnection.WriteMessage(websocket.TextMessage, poolStats)
+		redisConnection.Close()
 
 		for {
 			select {
 			case <-ticker.C:
-				// we need to get these values from db.
-				connection.WriteJSON(User{
-					Address:            "QX87 QX87 QX87 QX87 QX87 QX87 QX87 QX87",
-					OutStandingBalance: 220.23,
-					PaidBalance:        1245.96,
-					Hashrate:           100.12,
-				})
+				socketConnection.WriteMessage(websocket.TextMessage, poolStats)
+				redisConnection.Close()
 			case <-clientClosed:
 				return
 			}
 		}
-	}(connection, clientClosed)
+	}(socketConnection, clientClosed)
+}
+
+func InitRedis() {
+	RedisPool = createRedisPool()
 }
 
 type User struct {

@@ -101,6 +101,18 @@
 			"revisionTime": "2018-05-22T22:42:51Z"
 		},
 		{
+			"checksumSHA1": "w3QCCIYHgZzIXQ+xTl7oLfFrXHs=",
+			"path": "github.com/gomodule/redigo/internal",
+			"revision": "bb5990dc771ab24e169aaea90ee3b9ad50cffce9",
+			"revisionTime": "2018-06-01T13:19:09Z"
+		},
+		{
+			"checksumSHA1": "HgOVOUtWUYHcNe8aipwuEZ7YLow=",
+			"path": "github.com/gomodule/redigo/redis",
+			"revision": "bb5990dc771ab24e169aaea90ee3b9ad50cffce9",
+			"revisionTime": "2018-06-01T13:19:09Z"
+		},
+		{
 			"checksumSHA1": "mB5P3/XIC7r4Jc0/K86NA9Jq2CA=",
 			"path": "github.com/gorilla/websocket",
 			"revision": "c17c80cb48b806045fc338c94c849909a2e41c12",
