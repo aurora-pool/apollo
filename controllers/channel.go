@@ -102,8 +102,10 @@ func getRedisUrl() string {
 func wshandler(w http.ResponseWriter, r *http.Request) {
 	socketConnection, _ := wsupgrader.Upgrade(w, r, nil)
 	redisConnection := RedisPool.Get()
+	defer redisConnection.Close()
 	clientClosed := make(chan bool, 1)
 	poolStats, _ := redis.Bytes(redisConnection.Do("get", "aurora-pool:stats"))
+	socketConnection.WriteMessage(websocket.TextMessage, poolStats)
 
 	go func(socketConnection *websocket.Conn, clientClosed chan bool) {
 		for {
@@ -123,14 +125,14 @@ func wshandler(w http.ResponseWriter, r *http.Request) {
 	go func(socketConnection *websocket.Conn, clientClosed chan bool) {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
-		socketConnection.WriteMessage(websocket.TextMessage, poolStats)
-		redisConnection.Close()
 
 		for {
 			select {
 			case <-ticker.C:
-				socketConnection.WriteMessage(websocket.TextMessage, poolStats)
-				redisConnection.Close()
+				redisConn := RedisPool.Get()
+				stats, _ := redis.Bytes(redisConn.Do("get", "aurora-pool:stats"))
+				redisConn.Close()
+				socketConnection.WriteMessage(websocket.TextMessage, stats)
 			case <-clientClosed:
 				return
 			}
