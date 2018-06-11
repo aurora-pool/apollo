@@ -3,7 +3,9 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -41,6 +43,21 @@ func (ctr ChannelCtrl) InitRedis() {
 var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header["Origin"]
+
+		if len(origin) == 0 {
+			return true
+		}
+
+		u, err := url.Parse(origin[0])
+
+		if err != nil {
+			return false
+		}
+
+		return isEqDomain(u, r.URL)
+	},
 }
 
 func createRedisPool() *redis.Pool {
@@ -127,4 +144,18 @@ type User struct {
 	OutStandingBalance float64 `json:"balance"`
 	PaidBalance        float64 `json:"paid"`
 	Hashrate           float64 `json:"hashrate"`
+}
+
+func isEqDomain(lhs *url.URL, rhs *url.URL) bool {
+	lhsHost := strings.Join(
+		strings.Split(lhs.Host, ".")[1:],
+		".",
+	)
+
+	rhsHost := strings.Join(
+		strings.Split(rhs.Host, ".")[1:],
+		".",
+	)
+
+	return rhsHost == lhsHost
 }
