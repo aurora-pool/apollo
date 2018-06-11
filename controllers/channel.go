@@ -58,7 +58,7 @@ var wsupgrader = websocket.Upgrader{
 		}
 
 		fmt.Println(u, r.URL)
-		return isEqDomain(u, r.URL)
+		return isEqDomain(u, r.RequestURI)
 	},
 }
 
@@ -149,17 +149,16 @@ type User struct {
 }
 
 func isEqDomain(lhs *url.URL, rhs *url.URL) bool {
-	lhsHost := strings.Join(
-		strings.Split(lhs.Host, ".")[1:],
-		".",
-	)
+	lhsHost := lhs.Host
+	rhsHost := rhs.Host
 
-	rhsHost := strings.Join(
-		strings.Split(rhs.Host, ".")[1:],
-		".",
-	)
+	if partsLhs := strings.Split(lhsHost, "."); len(partsLhs) > 2 {
+		lhsHost = strings.Join(partsLhs[1:], ".")
+	}
 
-	fmt.Println(lhsHost, rhsHost)
+	if partsLhs := strings.Split(rhsHost, "."); len(partsLhs) > 2 {
+		rhsHost = strings.Join(partsLhs[1:], ".")
+	}
 
 	return rhsHost == lhsHost
 }
