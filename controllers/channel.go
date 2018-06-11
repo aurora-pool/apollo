@@ -58,7 +58,8 @@ var wsupgrader = websocket.Upgrader{
 		}
 
 		fmt.Println(u, r.URL)
-		return isEqDomain(u, r.RequestURI)
+		rUrl, _ := url.Parse(r.RequestURI)
+		return isEqDomain(u, rUrl)
 	},
 }
 
