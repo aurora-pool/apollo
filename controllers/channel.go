@@ -57,8 +57,8 @@ var wsupgrader = websocket.Upgrader{
 			return false
 		}
 
-		fmt.Println(u, r.URL)
-		rUrl, _ := url.Parse(r.RequestURI)
+		fmt.Println(u, "https://"+r.Host)
+		rUrl, _ := url.Parse("https://" + r.Host)
 		return isEqDomain(u, rUrl)
 	},
 }
