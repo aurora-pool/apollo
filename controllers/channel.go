@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -56,6 +57,7 @@ var wsupgrader = websocket.Upgrader{
 			return false
 		}
 
+		fmt.Println(u, r.URL)
 		return isEqDomain(u, r.URL)
 	},
 }
@@ -156,6 +158,8 @@ func isEqDomain(lhs *url.URL, rhs *url.URL) bool {
 		strings.Split(rhs.Host, ".")[1:],
 		".",
 	)
+
+	fmt.Println(lhsHost, rhsHost)
 
 	return rhsHost == lhsHost
 }
