@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/garyburd/redigo/redis"
 	"github.com/gin-gonic/gin"
+	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/websocket"
 )
 
