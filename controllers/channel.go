@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -17,8 +18,9 @@ import (
 var RedisPool *redis.Pool
 
 const (
-	RedisHost = "localhost"
-	RedisPort = "6379"
+	RedisHost      = "localhost"
+	RedisPort      = "6379"
+	GlobalStatsUrl = "https://nimiq.mopsus.com/api/quick-stats"
 )
 
 type ChannelCtrl struct {
@@ -33,7 +35,7 @@ func (ctr ChannelCtrl) ChannelIndex(c *gin.Context) {
 	c.JSON(200, map[string]string{"message": "Coming soon"})
 }
 
-func (ctr ChannelCtrl) WebSocket(c *gin.Context) {
+func (ctr ChannelCtrl) InitWebSocket(c *gin.Context) {
 	wshandler(c.Writer, c.Request)
 }
 
@@ -92,6 +94,22 @@ func createRedisPool() *redis.Pool {
 	return pool
 }
 
+func getGlobalStats() []byte {
+	parsedURL, _ := url.Parse(GlobalStatsUrl)
+	resp := fetchUrl(parsedURL)
+	fmt.Println(resp)
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	formattedGlobalStats := fmt.Sprintf(`{"type":"global:stats","payload":%s}`, body)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return []byte(formattedGlobalStats)
+}
+
 func getRedisUrl() string {
 	if redisEnv := os.Getenv("REDIS_URL"); len(redisEnv) > 1 {
 		return redisEnv
@@ -106,6 +124,7 @@ func wshandler(w http.ResponseWriter, r *http.Request) {
 	clientClosed := make(chan bool, 1)
 	poolStats, _ := redis.Bytes(redisConnection.Do("get", "aurora-pool:stats"))
 	socketConnection.WriteMessage(websocket.TextMessage, poolStats)
+	socketConnection.WriteMessage(websocket.TextMessage, getGlobalStats())
 
 	go func(socketConnection *websocket.Conn, clientClosed chan bool) {
 		for {
@@ -138,6 +157,28 @@ func wshandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}(socketConnection, clientClosed)
+
+	go func(socketConnection *websocket.Conn, clientClosed chan bool) {
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				socketConnection.WriteMessage(websocket.TextMessage, getGlobalStats())
+			case <-clientClosed:
+				return
+			}
+		}
+	}(socketConnection, clientClosed)
+}
+
+func fetchUrl(url *url.URL) *http.Response {
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", url.String(), nil)
+	resp, _ := client.Do(req)
+
+	return resp
 }
 
 func InitRedis() {
