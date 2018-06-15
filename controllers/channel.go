@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"time"
@@ -11,8 +13,9 @@ import (
 )
 
 const (
-	RedisHost = "localhost"
-	RedisPort = "6379"
+	RedisHost      = "localhost"
+	RedisPort      = "6379"
+	GlobalStatsUrl = "https://nimiq.mopsus.com/api/quick-stats"
 )
 
 var RedisPool *redis.Pool
@@ -83,11 +86,39 @@ func createRedisPool() *redis.Pool {
 	return pool
 }
 
+func getGlobalStats() []byte {
+	parsedURL, _ := url.Parse(GlobalStatsUrl)
+	resp := fetchUrl(parsedURL)
+	log.Println(resp)
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	formattedGlobalStats := fmt.Sprintf(`{"type":"global:stats","payload":%s}`, body)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return []byte(formattedGlobalStats)
+}
+
 func getRedisUrl() string {
 	if redisEnv := os.Getenv("REDIS_URL"); len(redisEnv) > 1 {
 		return redisEnv
 	}
 	return RedisHost + ":" + RedisPort
+}
+
+func fetchUrl(url *url.URL) *http.Response {
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", url.String(), nil)
+	resp, _ := client.Do(req)
+
+	return resp
+}
+
+func InitRedis() {
+	RedisPool = createRedisPool()
 }
 
 type User struct {
