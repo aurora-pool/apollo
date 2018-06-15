@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/aurora-pool/apollo/controllers"
+	"github.com/aurora-pool/apollo/hub"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
@@ -16,6 +17,9 @@ func main() {
 	db, err := gorm.Open("mysql", "AuroraRoot:Enterprise32@tcp(us-east.cvvg11be4uiw.us-east-2.rds.amazonaws.com:3306)/pool?charset=utf8&parseTime=True&loc=Local")
 	defer db.Close()
 
+	hub := hub.NewHub()
+	go hub.Run()
+
 	if err != nil {
 		panic(err)
 	}
@@ -29,6 +33,8 @@ func main() {
 	usersCtrl := controllers.UsersCtrl{}
 
 	channelCtrl.SetDB(db)
+	channelCtrl.SetHub(hub)
+
 	usersCtrl.SetDB(db)
 
 	api.GET("/channels", channelCtrl.ChannelIndex)

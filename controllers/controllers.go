@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"github.com/aurora-pool/apollo/hub"
 	"github.com/jinzhu/gorm"
 )
 
@@ -10,9 +11,14 @@ type UserModel struct {
 }
 
 type Controller struct {
-	DB *gorm.DB
+	DB  *gorm.DB
+	hub *hub.Hub
 }
 
 func (ctr *Controller) SetDB(db *gorm.DB) {
 	ctr.DB = db
+}
+
+func (ctr *Controller) SetHub(hub *hub.Hub) {
+	ctr.hub = hub
 }

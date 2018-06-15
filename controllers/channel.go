@@ -1,25 +1,21 @@
 package controllers
 
 import (
-	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
-	"strings"
 	"time"
 
+	"github.com/aurora-pool/apollo/hub"
 	"github.com/gin-gonic/gin"
 	"github.com/gomodule/redigo/redis"
-	"github.com/gorilla/websocket"
 )
-
-var RedisPool *redis.Pool
 
 const (
 	RedisHost = "localhost"
 	RedisPort = "6379"
 )
+
+var RedisPool *redis.Pool
 
 type ChannelCtrl struct {
 	Controller
@@ -34,33 +30,28 @@ func (ctr ChannelCtrl) ChannelIndex(c *gin.Context) {
 }
 
 func (ctr ChannelCtrl) WebSocket(c *gin.Context) {
-	wshandler(c.Writer, c.Request)
+	client := hub.ServeWs(ctr.hub, c.Writer, c.Request)
+
+	go func(hub *hub.Hub, c *hub.Client) {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				redisConn := RedisPool.Get()
+				stats, _ := redis.Bytes(redisConn.Do("get", "aurora-pool:stats"))
+				redisConn.Close()
+				hub.Broadcast <- stats
+			case <-c.Closed:
+				return
+			}
+		}
+	}(ctr.hub, client)
 }
 
-func (ctr ChannelCtrl) InitRedis() {
-	InitRedis()
-}
-
-var wsupgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header["Origin"]
-
-		if len(origin) == 0 {
-			return true
-		}
-
-		u, err := url.Parse(origin[0])
-
-		if err != nil {
-			return false
-		}
-
-		fmt.Println(u, "https://"+r.Host)
-		rUrl, _ := url.Parse("https://" + r.Host)
-		return isEqDomain(u, rUrl)
-	},
+func InitRedis() {
+	RedisPool = createRedisPool()
 }
 
 func createRedisPool() *redis.Pool {
@@ -99,69 +90,9 @@ func getRedisUrl() string {
 	return RedisHost + ":" + RedisPort
 }
 
-func wshandler(w http.ResponseWriter, r *http.Request) {
-	socketConnection, _ := wsupgrader.Upgrade(w, r, nil)
-	redisConnection := RedisPool.Get()
-	defer redisConnection.Close()
-	clientClosed := make(chan bool, 1)
-	poolStats, _ := redis.Bytes(redisConnection.Do("get", "aurora-pool:stats"))
-	socketConnection.WriteMessage(websocket.TextMessage, poolStats)
-
-	go func(socketConnection *websocket.Conn, clientClosed chan bool) {
-		for {
-			_, _, err := socketConnection.ReadMessage()
-			if err != nil {
-				// We are done here
-				clientClosed <- true
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
-					log.Printf("error: %v, user-agent: %v", err, r.Header.Get("User-Agent"))
-				}
-
-				socketConnection.Close()
-			}
-		}
-	}(socketConnection, clientClosed)
-
-	go func(socketConnection *websocket.Conn, clientClosed chan bool) {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				redisConn := RedisPool.Get()
-				stats, _ := redis.Bytes(redisConn.Do("get", "aurora-pool:stats"))
-				redisConn.Close()
-				socketConnection.WriteMessage(websocket.TextMessage, stats)
-			case <-clientClosed:
-				return
-			}
-		}
-	}(socketConnection, clientClosed)
-}
-
-func InitRedis() {
-	RedisPool = createRedisPool()
-}
-
 type User struct {
 	Address            string  `json:"address"`
 	OutStandingBalance float64 `json:"balance"`
 	PaidBalance        float64 `json:"paid"`
 	Hashrate           float64 `json:"hashrate"`
-}
-
-func isEqDomain(lhs *url.URL, rhs *url.URL) bool {
-	lhsHost := lhs.Host
-	rhsHost := rhs.Host
-
-	if partsLhs := strings.Split(lhsHost, "."); len(partsLhs) > 2 {
-		lhsHost = strings.Join(partsLhs[1:], ".")
-	}
-
-	if partsLhs := strings.Split(rhsHost, "."); len(partsLhs) > 2 {
-		rhsHost = strings.Join(partsLhs[1:], ".")
-	}
-
-	return rhsHost == lhsHost
 }
