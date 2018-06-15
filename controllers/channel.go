@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -36,6 +38,20 @@ func (ctr ChannelCtrl) WebSocket(c *gin.Context) {
 	client := hub.ServeWs(ctr.hub, c.Writer, c.Request)
 
 	go func(hub *hub.Hub, c *hub.Client) {
+		ticker := time.NewTicker(20 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				hub.Broadcast <- getGlobalStats()
+			case <-c.Closed:
+				return
+			}
+		}
+	}(ctr.hub, client)
+
+	go func(hub *hub.Hub, c *hub.Client) {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 
@@ -51,10 +67,6 @@ func (ctr ChannelCtrl) WebSocket(c *gin.Context) {
 			}
 		}
 	}(ctr.hub, client)
-}
-
-func InitRedis() {
-	RedisPool = createRedisPool()
 }
 
 func createRedisPool() *redis.Pool {

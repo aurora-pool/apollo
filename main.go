@@ -38,7 +38,7 @@ func main() {
 	usersCtrl.SetDB(db)
 
 	api.GET("/channels", channelCtrl.ChannelIndex)
-	api.GET("/ws", channelCtrl.InitWebSocket)
+	api.GET("/ws", channelCtrl.WebSocket)
 	api.GET("/users/:id", usersCtrl.Show)
 
 	router.Run(":8442")
