@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/aurora-pool/apollo/controllers"
+	"github.com/aurora-pool/apollo/helpers"
 	"github.com/aurora-pool/apollo/hub"
 	"github.com/aurora-pool/apollo/stats"
 	"github.com/gin-gonic/gin"
@@ -15,7 +16,7 @@ func main() {
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
 
-	db, err := gorm.Open("mysql", "AuroraRoot:Enterprise32@tcp(us-east.cvvg11be4uiw.us-east-2.rds.amazonaws.com:3306)/pool?charset=utf8&parseTime=True&loc=Local")
+	db, err := gorm.Open("mysql", helpers.GetDBurl())
 	defer db.Close()
 
 	hub := hub.NewHub()
