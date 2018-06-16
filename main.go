@@ -3,13 +3,14 @@ package main
 import (
 	"github.com/aurora-pool/apollo/controllers"
 	"github.com/aurora-pool/apollo/hub"
+	"github.com/aurora-pool/apollo/stats"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 )
 
 func main() {
-	controllers.InitRedis()
+	stats.InitRedis()
 	router := gin.New()
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
@@ -19,6 +20,8 @@ func main() {
 
 	hub := hub.NewHub()
 	go hub.Run()
+	statsUpdater := stats.NewStats()
+	go statsUpdater.Run(hub)
 
 	if err != nil {
 		panic(err)

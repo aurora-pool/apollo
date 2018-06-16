@@ -46,3 +46,7 @@ func (h *Hub) Run() {
 		}
 	}
 }
+
+func (h *Hub) Send(data []byte) {
+	h.Broadcast <- data
+}
