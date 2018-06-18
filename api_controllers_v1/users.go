@@ -1,4 +1,4 @@
-package controllers
+package api_controller_v1
 
 import (
 	"fmt"

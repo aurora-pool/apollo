@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -33,6 +34,7 @@ type Broadcastable interface {
 func (st *Stats) Run(hub Broadcastable) {
 	go poolStats(hub, st)
 	go globalStats(hub, st)
+	go minersStats(hub, st)
 }
 
 func globalStats(hub Broadcastable, stats *Stats) {
@@ -60,6 +62,32 @@ func poolStats(hub Broadcastable, stats *Stats) {
 			stats, _ := redis.Bytes(redisConn.Do("get", "aurora-pool:stats"))
 			redisConn.Close()
 			hub.Send(stats)
+		case <-stats.Closed:
+			return
+		}
+	}
+}
+
+func minersStats(hub Broadcastable, stats *Stats) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			redisConn := RedisPool.Get()
+			stats, _ := redis.Strings(redisConn.Do("zrange", "miners:active", 1, -1))
+			redisConn.Close()
+
+			urlsJson, err := json.Marshal(stats)
+			if err != nil {
+				log.Println("ERROR:minerStats: Cannot parse json!")
+				continue
+			}
+
+			formattedStats := fmt.Sprintf(`{"type":"global:stats:miners","payload":%s}`, string(urlsJson))
+
+			hub.Send([]byte(formattedStats))
 		case <-stats.Closed:
 			return
 		}

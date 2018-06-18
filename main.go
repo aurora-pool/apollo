@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/aurora-pool/apollo/controllers"
+	api_controllers "github.com/aurora-pool/apollo/api_controllers_v1"
 	"github.com/aurora-pool/apollo/helpers"
 	"github.com/aurora-pool/apollo/hub"
 	"github.com/aurora-pool/apollo/stats"
@@ -33,8 +33,8 @@ func main() {
 	})
 
 	api := router.Group("/api/v1")
-	channelCtrl := controllers.ChannelCtrl{}
-	usersCtrl := controllers.UsersCtrl{}
+	channelCtrl := api_controllers.ChannelCtrl{}
+	usersCtrl := api_controllers.UsersCtrl{}
 
 	channelCtrl.SetDB(db)
 	channelCtrl.SetHub(hub)

@@ -1,4 +1,4 @@
-package controllers
+package api_controller_v1
 
 import (
 	"github.com/aurora-pool/apollo/hub"
@@ -19,11 +19,4 @@ func (ctr ChannelCtrl) ChannelIndex(c *gin.Context) {
 
 func (ctr ChannelCtrl) WebSocket(c *gin.Context) {
 	hub.ServeWs(ctr.hub, c.Writer, c.Request)
-}
-
-type User struct {
-	Address            string  `json:"address"`
-	OutStandingBalance float64 `json:"balance"`
-	PaidBalance        float64 `json:"paid"`
-	Hashrate           float64 `json:"hashrate"`
 }
